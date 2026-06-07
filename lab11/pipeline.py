@@ -12,53 +12,39 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 
-# TODO: Implementează funcția read_file
 def read_file(path: str) -> str:
-    """Citește conținutul unui fișier text.
+    """Citește conținutul unui fișier text."""
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Fișierul {path} nu există.")
 
-    Args:
-        path: Calea absolută sau relativă a fișierului.
-
-    Returns:
-        Conținutul fișierului ca string.
-
-    Raises:
-        FileNotFoundError: Dacă fișierul nu există.
-        IOError: La erori de citire.
-    """
-    raise NotImplementedError("De implementat")
+    with open(p, "r", encoding="utf-8") as f:
+        return f.read()
 
 
-# TODO: Implementează funcția count_words
 def count_words(text: str) -> dict[str, int]:
     """Numără frecvența fiecărui cuvânt din text.
 
     Cuvintele sunt separate prin spații și/sau newline-uri.
-    Comparația este case-sensitive (nu se face lowercase).
-
-    Args:
-        text: Textul de analizat.
-
-    Returns:
-        Dict {cuvânt: număr_apariții}.
-
-    Exemple:
-        count_words("ana are mere") == {'ana': 1, 'are': 1, 'mere': 1}
-        count_words("a a b") == {'a': 2, 'b': 1}
-        count_words("") == {}
+    Comparația este case-sensitive.
     """
-    raise NotImplementedError("De implementat")
+    if not text:
+        return {}
+
+    # split() fără argumente separă automat după orice spațiu alb (spații, taburi, newline)
+    cuvinte = text.split()
+
+    frecvente = {}
+    for cuvint in cuvinte:
+        frecvente[cuvint] = frecvente.get(cuvint, 0) + 1
+
+    return frecvente
 
 
-# TODO: Implementează funcția write_result
 def write_result(result: dict, output_path: str) -> None:
-    """Scrie rezultatul numărării cuvintelor în fișier JSON.
-
-    Args:
-        result: Dict-ul {cuvânt: frecvență} de scris.
-        output_path: Calea fișierului de ieșire.
-    """
-    raise NotImplementedError("De implementat")
+    """Scrie rezultatul numărării cuvintelor în fișier JSON."""
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False)
 
 
 def _process_single_file(args: tuple[str, str]) -> None:
@@ -67,29 +53,36 @@ def _process_single_file(args: tuple[str, str]) -> None:
     Args:
         args: Tuplu (input_path, output_path).
     """
-    # TODO: Implementează procesarea unui fișier individual
+    input_path, output_path = args
+
     # 1. Citește conținutul
+    continut = read_file(input_path)
+
     # 2. Numără cuvintele
+    rezultat_numarare = count_words(continut)
+
     # 3. Scrie rezultatul
-    raise NotImplementedError("De implementat")
+    write_result(rezultat_numarare, output_path)
 
 
-# TODO: Implementează funcția process_files_pipeline
 def process_files_pipeline(input_paths: list[str], output_dir: str) -> None:
     """Procesează mai multe fișiere în paralel folosind un pipeline cu ThreadPoolExecutor.
 
     Fișierele sunt procesate simultan (nu secvențial).
-    Fișierul de ieșire are același nume ca cel de intrare, cu extensia .json.
-
-    Args:
-        input_paths: Lista căilor fișierelor de intrare.
-        output_dir: Directorul unde se scriu fișierele de ieșire.
-
-    Exemplu:
-        process_files_pipeline(
-            ["/tmp/doc1.txt", "/tmp/doc2.txt"],
-            "/tmp/output/"
-        )
-        # Creează /tmp/output/doc1.json și /tmp/output/doc2.json
     """
-    raise NotImplementedError("De implementat")
+    if not input_paths:
+        return
+
+    # Pregătim tuplurile de argumente (input, output) pentru fiecare fișier în parte
+    liste_argumente = []
+    p_output_dir = Path(output_dir)
+
+    for calea_in in input_paths:
+        p_in = Path(calea_in)
+        # Înlocuim extensia cu .json și construim noua cale în directorul de destinație
+        calea_out = str(p_output_dir / p_in.with_suffix('.json').name)
+        liste_argumente.append((calea_in, calea_out))
+
+    # Executăm procesarea fișierelor în paralel în pool-ul de fire de execuție
+    with ThreadPoolExecutor() as executor:
+        executor.map(_process_single_file, liste_argumente)
